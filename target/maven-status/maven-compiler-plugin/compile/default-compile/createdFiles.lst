@@ -1,9 +1,0 @@
-com\vitalguard\model\VitalAbnormality.class
-com\vitalguard\model\EvaluatedVitals.class
-com\vitalguard\risk\SeverityLevel.class
-com\vitalguard\audit\AuditRecord.class
-com\vitalguard\config\RiskThresholds.class
-com\vitalguard\Main.class
-com\vitalguard\audit\VitalsAuditLogger.class
-com\vitalguard\risk\RiskEvaluationResult.class
-com\vitalguard\risk\RiskScoringEngine.class

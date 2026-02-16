@@ -1,9 +1,0 @@
-D:\Edoras\vitalguard\src\main\java\com\vitalguard\audit\AuditRecord.java
-D:\Edoras\vitalguard\src\main\java\com\vitalguard\audit\VitalsAuditLogger.java
-D:\Edoras\vitalguard\src\main\java\com\vitalguard\config\RiskThresholds.java
-D:\Edoras\vitalguard\src\main\java\com\vitalguard\Main.java
-D:\Edoras\vitalguard\src\main\java\com\vitalguard\model\EvaluatedVitals.java
-D:\Edoras\vitalguard\src\main\java\com\vitalguard\model\VitalAbnormality.java
-D:\Edoras\vitalguard\src\main\java\com\vitalguard\risk\RiskEvaluationResult.java
-D:\Edoras\vitalguard\src\main\java\com\vitalguard\risk\RiskScoringEngine.java
-D:\Edoras\vitalguard\src\main\java\com\vitalguard\risk\SeverityLevel.java
