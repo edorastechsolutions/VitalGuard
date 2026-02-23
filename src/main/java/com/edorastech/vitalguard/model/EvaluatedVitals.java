@@ -1,10 +1,10 @@
-package com.vitalguard.model;
+package com.edorastech.vitalguard.model;
 
 import java.util.List;
 
 public class EvaluatedVitals {
 
-    private final String overallStatus;
+    private final OverallStatus overallStatus;
     private final double heartRate;
     private final double systolic;
     private final double diastolic;
@@ -12,7 +12,7 @@ public class EvaluatedVitals {
     private final double oxygenSaturation;
     private final List<VitalAbnormality> abnormalities;
 
-    public EvaluatedVitals(String overallStatus,
+    public EvaluatedVitals(OverallStatus overallStatus,
                            double heartRate,
                            double systolic,
                            double diastolic,
@@ -28,28 +28,8 @@ public class EvaluatedVitals {
         this.abnormalities = abnormalities;
     }
 
-    public String getOverallStatus() {
+    public OverallStatus getOverallStatus() {
         return overallStatus;
-    }
-
-    public double getHeartRate() {
-        return heartRate;
-    }
-
-    public double getSystolic() {
-        return systolic;
-    }
-
-    public double getDiastolic() {
-        return diastolic;
-    }
-
-    public double getTemperature() {
-        return temperature;
-    }
-
-    public double getOxygenSaturation() {
-        return oxygenSaturation;
     }
 
     public List<VitalAbnormality> getAbnormalities() {

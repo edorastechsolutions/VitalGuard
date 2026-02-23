@@ -1,72 +1,105 @@
-# VitalGuard Health Monitoring System
+VitalGuard – Health Monitoring System
 
-## Overview
+Overview:
 
-VitalGuard is a modular Java-based health risk assessment system designed to demonstrate clean architecture, separation of concerns, and production-quality engineering practices.
+VitalGuard is a modular Java-based health monitoring system that evaluates patient vitals, calculates risk scores, detects health trends, and determines alert escalation using clean architectural principles.
 
-The system evaluates patient vitals, computes a structured risk score, and maintains an in-memory audit trail of evaluations.
+The system simulates real-world clinical monitoring with structured decision logic and pattern-based trend analysis.
 
----
+Architecture Overview:
 
-## Architecture
+com.edorastech.vitalguard
+│
+├── model          → Core domain models (Vitals, Severity, Status)
+├── risk           → Risk scoring engine
+├── trend          → Trend analysis & classification
+│   └── patterns   → Pattern detection strategies
+├── audit          → Historical record storage
+├── notification   → Escalation & alert generation
+├── validation     → Domain integrity checks
+├── config         → Centralized escalation rules
+└── Main           → Console entry point
 
-The project follows a modular design:
+Execution Flow:
 
-- **config/** → Risk thresholds and configuration constants  
-- **model/** → Domain models and structured data objects  
-- **risk/** → Risk Scoring Engine module  
-- **audit/** → Vitals Audit Logger module  
-- **Main.java** → Application entry point (user interaction)
+User Input
+ → Vital Evaluation
+ → Risk Scoring
+ → Audit Logging
+ → Trend Analysis
+ → Integrity Validation
+ → Notification Decision
+ → Output Report
 
-Each module is strictly separated and independently maintainable.
+Pattern Detection Logic:
 
----
+Trend analysis is implemented using a strategy-based detector interface:
 
-## Module Responsibilities
+AlertStreakDetector
+Detects 3 consecutive ALERT records → CRITICAL pattern.
 
-### 1️⃣ Risk Scoring Engine
-- Accepts evaluated vitals data
-- Assigns severity points:
-  - Mild → +1  
-  - Moderate → +2  
-  - Severe → +3  
-- Computes total risk score
-- Determines risk category: LOW / MODERATE / HIGH
-- Returns a structured result object
+RecoveryDetector
+Detects ALERT → ALERT → NORMAL → RECOVERING pattern.
 
-### 2️⃣ Vitals Audit Logger
-- Records:
-  - patientId
-  - timestamp
-  - overall status (NORMAL / ALERT)
-  - abnormal parameters
-- Stores logs in memory
-- Provides audit history retrieval by patient ID
-- Maintains structured, readable records
+If no recovery and alerts increase → DETERIORATING.
 
----
+Trend classifications:
 
-## Scoring Logic
+STABLE
+RECOVERING
+DETERIORATING
+CRITICAL
 
-Each abnormal vital is assigned a severity level with defined point values.  
-The total score determines the overall risk category based on configurable thresholds defined in `RiskThresholds.java`.
+Escalation Logic:
 
-No hardcoded magic numbers are used in the scoring logic.
+Escalation is determined using a centralized rule matrix:
 
----
+Risk Level	          Trend	        Result
+HIGH	             Any	          EMERGENCY_ALERT
+MODERATE	         DETERIORATING	ESCALATED_ALERT
+LOW	               CRITICAL	      ESCALATED_ALERT
+Any	               RECOVERING	    NONE
+Otherwise	             —          STANDARD_ALERT
 
-## Assumptions
+Rules are defined in a configuration class to avoid scattered conditional logic.
 
-- Console-based backend simulation
-- Vitals provided manually by user input
-- In-memory audit storage (no database integration)
-- Positive numeric values assumed for vitals
-- Single-user execution environment
+Assumptions:
 
----
+Audit logs are stored in memory.
+Severity thresholds are simplified for simulation.
+Console-based execution (no UI).
+Single-threaded environment.
+Timestamps use system clock.
+No external database.
 
-## How to Run
+Design Decisions:
 
-```bash
-mvn clean install
-mvn exec:java -Dexec.mainClass="com.vitalguard.Main"
+Enums used for type safety (no string comparisons).
+Immutable result objects.
+Strategy pattern for trend detection.
+Centralized escalation configuration.
+Chronological audit processing.
+No magic numbers (constants defined).
+
+Future Scalability:
+
+Add database persistence (JPA / PostgreSQL).
+Convert to Spring Boot REST API.
+Externalize escalation rules (YAML / DB).
+Add unit and integration tests.
+Implement real-time streaming support.
+Split into microservices (Risk, Trend, Notification).
+
+Tech Stack:
+
+Java 21
+Maven
+Clean Architecture
+Enum-driven domain modeling
+
+To Run the Project
+mvn clean compile
+mvn exec:java
+exec-maven-plugin points to → "com.edorastech.vitalguard.Main"
+
+VitalGuard demonstrates clean design, scalable alert logic, and professional-grade domain modeling suitable for enterprise healthcare monitoring systems.

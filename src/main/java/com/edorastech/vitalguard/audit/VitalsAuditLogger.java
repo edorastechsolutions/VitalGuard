@@ -1,20 +1,22 @@
-package com.vitalguard.audit;
+package com.edorastech.vitalguard.audit;
 
 import java.time.LocalDateTime;
 import java.util.*;
+
+import com.edorastech.vitalguard.model.OverallStatus;
 
 public class VitalsAuditLogger {
 
     private final Map<String, List<AuditRecord>> auditStore = new HashMap<>();
 
     public void log(String patientId,
-                    String overallStatus,
+                    OverallStatus status,
                     List<String> abnormalParameters) {
 
         AuditRecord record = new AuditRecord(
                 patientId,
                 LocalDateTime.now(),
-                overallStatus,
+                status,
                 abnormalParameters
         );
 

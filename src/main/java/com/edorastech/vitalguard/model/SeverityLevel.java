@@ -1,4 +1,4 @@
-package com.vitalguard.risk;
+package com.edorastech.vitalguard.model;
 
 public enum SeverityLevel {
     MILD(1),
@@ -7,11 +7,11 @@ public enum SeverityLevel {
 
     private final int points;
 
-    SeverityLevel(int points) {
+    SeverityLevel(int points){
         this.points = points;
     }
 
-    public int getPoints() {
+    public int getPoints(){
         return points;
     }
 }
