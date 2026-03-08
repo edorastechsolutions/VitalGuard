@@ -3,6 +3,10 @@ package com.edorastech.vitalguard;
 import com.edorastech.vitalguard.audit.VitalsAuditLogger;
 import com.edorastech.vitalguard.model.*;
 import com.edorastech.vitalguard.notification.*;
+import com.edorastech.vitalguard.reporting.PatientHealthReport;
+import com.edorastech.vitalguard.reporting.PatientHealthReportAggregator;
+import com.edorastech.vitalguard.repository.InMemoryPatientHealthReportRepository;
+import com.edorastech.vitalguard.repository.PatientHealthReportRepository;
 import com.edorastech.vitalguard.risk.*;
 import com.edorastech.vitalguard.trend.*;
 import com.edorastech.vitalguard.validation.*;
@@ -13,16 +17,17 @@ public class Main {
 
     private static final Scanner scanner = new Scanner(System.in);
 
+    private static final PatientHealthReportRepository reportRepository =
+            new InMemoryPatientHealthReportRepository();
+
     public static void main(String[] args) {
 
-        System.out.println("=======================================================");
-        System.out.println("        VITALGUARD - ADVANCED HEALTH MONITORING SYSTEM");
-        System.out.println("=======================================================\n");
+        printSystemHeader();
 
         try {
-            //Input from User
 
-            System.out.print("Enter Patient ID: ");
+            // Patient Input
+            System.out.print("Patient ID: ");
             String patientId = scanner.nextLine().trim();
 
             double heartRate = readDouble("Heart Rate (bpm): ");
@@ -31,38 +36,25 @@ public class Main {
             double temperature = readDouble("Body Temperature (°C): ");
             double oxygen = readDouble("Oxygen Saturation (%): ");
 
-            //Abnormality Detection
+            printVitalsPanel(patientId, heartRate, systolic, diastolic, temperature, oxygen);
 
+            // Abnormality Detection
             List<VitalAbnormality> abnormalities = new ArrayList<>();
 
             if (heartRate < 60 || heartRate > 100)
-                abnormalities.add(new VitalAbnormality(
-                        "Heart Rate",
-                        "Out of Range",
-                        SeverityLevel.MODERATE));
+                abnormalities.add(new VitalAbnormality("Heart Rate", "Out of Range", SeverityLevel.MODERATE));
 
             if (systolic > 140)
-                abnormalities.add(new VitalAbnormality(
-                        "Systolic BP",
-                        "High",
-                        SeverityLevel.MODERATE));
+                abnormalities.add(new VitalAbnormality("Systolic BP", "High", SeverityLevel.MODERATE));
 
             if (temperature > 38)
-                abnormalities.add(new VitalAbnormality(
-                        "Temperature",
-                        "Fever",
-                        SeverityLevel.MILD));
+                abnormalities.add(new VitalAbnormality("Temperature", "Fever", SeverityLevel.MILD));
 
             if (oxygen < 95)
-                abnormalities.add(new VitalAbnormality(
-                        "Oxygen Saturation",
-                        "Low",
-                        SeverityLevel.SEVERE));
+                abnormalities.add(new VitalAbnormality("Oxygen Saturation", "Low", SeverityLevel.SEVERE));
 
             OverallStatus status =
-                    abnormalities.isEmpty()
-                            ? OverallStatus.NORMAL
-                            : OverallStatus.ALERT;
+                    abnormalities.isEmpty() ? OverallStatus.NORMAL : OverallStatus.ALERT;
 
             EvaluatedVitals evaluatedVitals =
                     new EvaluatedVitals(
@@ -75,14 +67,12 @@ public class Main {
                             abnormalities
                     );
 
-            //Risk Evaluation
-           
+            // Risk Evaluation
             RiskScoringEngine riskEngine = new RiskScoringEngine();
             RiskEvaluationResult riskResult =
                     riskEngine.calculateRisk(patientId, evaluatedVitals);
 
-            //Audit Logging
-
+            // Audit Logging
             VitalsAuditLogger auditLogger = new VitalsAuditLogger();
 
             List<String> abnormalParams = new ArrayList<>();
@@ -92,8 +82,7 @@ public class Main {
 
             auditLogger.log(patientId, status, abnormalParams);
 
-            //Trend Analysis
-
+            // Trend Analysis
             VitalsTrendAnalyzer trendAnalyzer = new VitalsTrendAnalyzer();
             TrendAnalysisResult trendResult =
                     trendAnalyzer.analyze(
@@ -101,14 +90,11 @@ public class Main {
                             auditLogger.getHistory(patientId)
                     );
 
-            //System Integrity Validation
-  
+            // System Validation
             SystemIntegrityGuard guard = new SystemIntegrityGuard();
             guard.validate(riskResult, trendResult);
 
-           
-            //Notification Engine
-
+            // Notification
             AlertNotificationEngine notificationEngine =
                     new AlertNotificationEngine();
 
@@ -120,14 +106,24 @@ public class Main {
 
             guard.validateNotification(notification, patientId);
 
-            //Output
+            // Aggregate Report
+            PatientHealthReportAggregator aggregator =
+                    new PatientHealthReportAggregator();
 
-            printFinalReport(
-                    evaluatedVitals,
-                    riskResult,
-                    trendResult,
-                    notification
-            );
+            PatientHealthReport report =
+                    aggregator.aggregate(
+                            riskResult,
+                            trendResult,
+                            notification
+                    );
+
+            reportRepository.save(report);
+
+            // Print Final Report
+            printFinalReport(evaluatedVitals, riskResult, trendResult, notification, report);
+
+            // Print History
+            printPatientHistory(patientId);
 
         } catch (DomainValidationException ex) {
 
@@ -144,49 +140,95 @@ public class Main {
         }
     }
 
+    private static void printSystemHeader() {
+
+        System.out.println("╔════════════════════════════════════════════════════════════╗");
+        System.out.println("║       VITALGUARD - ADVANCED HEALTH MONITORING SYSTEM       ║");
+        System.out.println("╚════════════════════════════════════════════════════════════╝\n");
+    }
+
     private static double readDouble(String prompt) {
         System.out.print(prompt);
         return scanner.nextDouble();
+    }
+
+    private static void printVitalsPanel(
+            String patientId,
+            double hr,
+            double sys,
+            double dia,
+            double temp,
+            double oxy) {
+
+        System.out.println("\n---------------- PATIENT VITAL DATA ----------------");
+
+        System.out.printf("%-20s : %s%n", "Patient ID", patientId);
+        System.out.printf("%-20s : %.1f bpm%n", "Heart Rate", hr);
+        System.out.printf("%-20s : %.1f mmHg%n", "Systolic BP", sys);
+        System.out.printf("%-20s : %.1f mmHg%n", "Diastolic BP", dia);
+        System.out.printf("%-20s : %.1f °C%n", "Temperature", temp);
+        System.out.printf("%-20s : %.1f %% %n", "Oxygen Saturation", oxy);
+
+        System.out.println("-----------------------------------------------------");
     }
 
     private static void printFinalReport(
             EvaluatedVitals vitals,
             RiskEvaluationResult risk,
             TrendAnalysisResult trend,
-            NotificationResult notification) {
+            NotificationResult notification,
+            PatientHealthReport report) {
 
-        System.out.println("\n=======================================================");
-        System.out.println("                  PATIENT HEALTH REPORT");
-        System.out.println("=======================================================");
+        System.out.println("\n╔════════════════════════════════════════════════════╗");
+        System.out.println("║               PATIENT HEALTH REPORT                ║");
+        System.out.println("╚════════════════════════════════════════════════════╝");
 
-        System.out.printf("Patient ID              : %s%n", risk.getPatientId());
-        System.out.printf("Overall Status          : %s%n", vitals.getOverallStatus());
-        System.out.printf("Risk Score              : %d%n", risk.getTotalScore());
-        System.out.printf("Risk Category           : %s%n", risk.getRiskCategory());
+        System.out.printf("%-25s : %s%n", "Patient ID", risk.getPatientId());
+        System.out.printf("%-25s : %s%n", "Overall Status", vitals.getOverallStatus());
+        System.out.printf("%-25s : %d%n", "Risk Score", risk.getTotalScore());
+        System.out.printf("%-25s : %s%n", "Risk Category", risk.getRiskCategory());
+        System.out.printf("%-25s : %s%n", "Trend Classification", trend.getTrendClassification());
+        System.out.printf("%-25s : %s%n", "Notification Type", notification.getNotificationType());
+        System.out.printf("%-25s : %s%n", "Final System Status", report.getOverallStatus());
+        System.out.printf("%-25s : %s%n", "Generated At", report.getGeneratedAt());
 
-        System.out.printf("Total Records           : %d%n", trend.getTotalRecords());
-        System.out.printf("Max Alert Streak        : %d%n", trend.getAlertStreakMax());
-        System.out.printf("Trend Classification    : %s%n",
-                trend.getTrendClassification());
+        System.out.println("────────────────────────────────────────────────────");
+        System.out.println("SYSTEM STATUS : OPERATION COMPLETE");
+    }
 
-        System.out.println("\nDetected Patterns:");
-        if (trend.getDetectedPatterns().isEmpty()) {
-            System.out.println(" - None");
-        } else {
-            trend.getDetectedPatterns()
-                    .forEach(p -> System.out.println(" - " + p));
+    private static void printPatientHistory(String patientId) {
+
+        System.out.println("\n╔════════════════════════════════════════════════════════════╗");
+        System.out.println("║                PATIENT HISTORICAL REPORTS                  ║");
+        System.out.println("╚════════════════════════════════════════════════════════════╝");
+
+        List<PatientHealthReport> history =
+                reportRepository.findByPatientId(patientId);
+
+        if (history.isEmpty()) {
+            System.out.println("No previous reports found.");
+            return;
         }
 
-        System.out.println("\nNotification Summary:");
-        System.out.printf("Type                    : %s%n",
-                notification.getNotificationType());
-        System.out.printf("Message                 : %s%n",
-                notification.getMessage());
-        System.out.printf("Generated At            : %s%n",
-                notification.getGeneratedAt());
+        System.out.printf("%-12s %-15s %-20s %-15s %-25s%n",
+                "Patient ID",
+                "Risk",
+                "Trend",
+                "Status",
+                "Generated At");
 
-        System.out.println("=======================================================");
-        System.out.println("System Status: OPERATION COMPLETE");
-        System.out.println("=======================================================");
+        System.out.println("--------------------------------------------------------------------------");
+
+        for (PatientHealthReport r : history) {
+
+            System.out.printf("%-12s %-15s %-20s %-15s %-25s%n",
+                    r.getPatientId(),
+                    r.getRiskCategory(),
+                    r.getTrendClassification(),
+                    r.getOverallStatus(),
+                    r.getGeneratedAt());
+        }
+
+        System.out.println("--------------------------------------------------------------------------");
     }
 }
