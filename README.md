@@ -11,26 +11,29 @@ com.edorastech.vitalguard
 ├── risk           → Risk scoring engine
 ├── trend          → Trend analysis & classification
 │   └── patterns   → Pattern detection strategies
-├── audit          → Historical record storage
+├── audit          → Audit logging & traceability
 ├── notification   → Alert generation & escalation
 ├── reporting      → Health report aggregation
 ├── repository     → Patient report storage
-├── validation     → Domain integrity checks
-├── config         → Centralized escalation rules
+├── monitoring     → Request tracing (Request ID)
+├── security       → Rate limiting & brute force protection
+├── validation     → Domain integrity & fail-safe checks
+├── config         → Centralized rules & security configs
 └── Main           → Console entry point
 
 Execution Flow:
-
-User Input
+Request Start (Request ID)
+ → Authentication Protection
+ → Rate Limiting
  → Vital Evaluation
  → Risk Scoring
  → Audit Logging
  → Trend Analysis
- → Integrity Validation
+ → Validation (Fail-Closed)
  → Notification Decision
  → Report Aggregation
  → Report Storage
- → Output Report
+ → Response Output
 
 Module Responsibilities:
 
@@ -56,7 +59,6 @@ These records are used later for trend analysis.
 
 Module 4 – Trend Analysis:
 The VitalsTrendAnalyzer processes historical audit records to detect patterns in patient health.
-
 Pattern detection strategies include:
 AlertStreakDetector - Detects three consecutive ALERT states and classifies the trend as CRITICAL.
 RecoveryDetector - Detects recovery pattern:
@@ -89,51 +91,90 @@ Retrieves reports by patient ID
 Displays historical patient monitoring data
 This enables tracking patient health progression over time.
 
-Escalation Logic:
-Escalation is determined using a centralized rule matrix:
+Module 8 – Request Trace & Correlation System:
+Generates unique Request ID (UUID) per request.
+Attached to logs and responses
+Enables full request traceability
 
-Risk Level	        Trend	        Result
-HIGH	             Any	    EMERGENCY_ALERT
-MODERATE	     DETERIORATING	ESCALATED_ALERT
-LOW	               CRITICAL	    ESCALATED_ALERT
-Any	              RECOVERING	NONE
-Otherwise          	  —	        STANDARD_ALERT
+Module 9 – Rate Limiting Engine:
+Prevents excessive usage.
+Thread-safe implementation
+Per-user request limits
+Rejects with:
+429 TOO MANY REQUESTS
+
+Module 10 – Brute Force Protection System:
+Protects authentication flow.
+Tracks failed login attempts
+Locks account after threshold
+Auto-reset on success
+
+Module 11 – Centralized Audit Logging:
+Captures system activity:
+requestId
+userId
+endpoint
+timestamp
+status
+Ensures observability and traceability.
+
+Module 12 – Fail-Closed Resilience Handling:
+Ensures system safety.
+Any failure → request denied
+No unsafe execution allowed
+Global exception handling
+
+Module 13 – Security Headers & CORS Hardening:
+Enhances system security.
+Headers:
+X-Content-Type-Options
+X-Frame-Options
+X-XSS-Protection
+Strict-Transport-Security
+CORS:
+Only trusted origins allowed
+No wildcard usage
+
+Escalation Logic:
+Risk	       Trend	        Result
+HIGH	        Any	       EMERGENCY_ALERT
+MODERATE	DETERIORATING  ESCALATED_ALERT
+LOW	          CRITICAL	   ESCALATED_ALERT
+Any	         RECOVERING	        NONE
+Default	         —	        STANDARD_ALERT
 
 Assumptions:
-Audit logs are stored in memory
-Simplified vital thresholds are used
-Application runs via console interface
-Single-threaded execution
-No external database
-System timestamps use the local system clock
+In-memory storage (no database)
+Console-based execution
+Simplified vital thresholds
+Single-node system
+System clock used for timestamps
 
 Design Principles:
 Clean modular architecture
 Enum-based domain modeling
-Immutable result objects
-Strategy pattern for trend detection
-Centralized rule configuration
-Chronological audit processing
+Immutable objects
+Strategy pattern (trend detection)
+Centralized configuration
+Thread-safe implementations
+Defensive programming
 
 Tech Stack:
 Java 21
 Apache Maven
-Clean Architecture Design
 
-Running the Project:
-Compile and run the project using Maven:
+To Run the Project:
 mvn clean compile
 mvn exec:java
 
-The execution plugin is configured to run:
+Main Class:
 com.edorastech.vitalguard.Main
 
-Possible enhancements:
-Add database persistence (PostgreSQL / JPA)
-Convert to Spring Boot REST API
-Externalize escalation rules (YAML / DB)
-Add unit and integration testing
-Implement real-time monitoring
-Split into microservices architecture
-
-VitalGuard demonstrates a clean and scalable architecture for health monitoring systems, combining risk analysis, trend detection, and alert management in a structured Java application.
+Conclusion:
+VitalGuard demonstrates a production-ready health monitoring system combining:
+Risk analysis
+Trend intelligence
+Alert escalation
+Historical tracking
+Security & abuse prevention
+Observability & traceability
