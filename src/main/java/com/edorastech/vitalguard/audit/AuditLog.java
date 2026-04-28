@@ -5,36 +5,31 @@ import java.time.LocalDateTime;
 public class AuditLog {
 
     private final String requestId;
-    private final String userId;
-    private final String action;
+    private final String patientId;
+    private final String endpoint;
     private final LocalDateTime timestamp;
     private final AuditStatus status;
     private final String error;
 
     public AuditLog(String requestId,
-                    String userId,
-                    String action,
+                    String patientId,
+                    String endpoint,
                     LocalDateTime timestamp,
                     AuditStatus status,
                     String error) {
+
         this.requestId = requestId;
-        this.userId = userId;
-        this.action = action;
+        this.patientId = patientId;
+        this.endpoint = endpoint;
         this.timestamp = timestamp;
         this.status = status;
         this.error = error;
     }
 
-    @Override
-    public String toString() {
-        return String.format(
-                "[%s] [%s] User=%s Action=%s Status=%s Error=%s",
-                timestamp,
-                requestId,
-                userId,
-                action,
-                status,
-                error == null ? "-" : error
-        );
-    }
+    public String getRequestId() { return requestId; }
+    public String getPatientId() { return patientId; }
+    public String getEndpoint() { return endpoint; }
+    public LocalDateTime getTimestamp() { return timestamp; }
+    public AuditStatus getStatus() { return status; }
+    public String getError() { return error; }
 }

@@ -1,31 +1,44 @@
-VitalGuard – Health Monitoring System
+VitalGuard – Advanced Health Monitoring System
+📌 Overview :
+VitalGuard is a modular, production-oriented Java-based health monitoring system designed to simulate real-world clinical workflows.
 
-Overview:
-VitalGuard is a modular Java-based health monitoring system that evaluates patient vitals, calculates risk scores, detects health trends, and determines alert escalation using structured domain logic.
-The system simulates real-world clinical monitoring workflows, producing structured health reports while maintaining historical patient records.
+The system:
+Evaluates patient vitals
+Calculates risk scores
+Detects health trends
+Generates alert notifications
+Maintains historical records
+Ensures security, observability, and reliability
 
-Architecture Overview:
+It evolves from a simple backend into a failure-resistant, testable, and observable system.
+
+🏗️ Architecture Overview:
+
 com.edorastech.vitalguard
 │
-├── model          → Core domain models (Vitals, Severity, Status)
+├── model          → Core domain models
 ├── risk           → Risk scoring engine
-├── trend          → Trend analysis & classification
-│   └── patterns   → Pattern detection strategies
+├── trend          → Trend analysis & pattern detection
+│   └── patterns   → Detection strategies
 ├── audit          → Audit logging & traceability
 ├── notification   → Alert generation & escalation
 ├── reporting      → Health report aggregation
-├── repository     → Patient report storage
+├── repository     → Report storage (in-memory)
 ├── monitoring     → Request tracing (Request ID)
 ├── security       → Rate limiting & brute force protection
-├── validation     → Domain integrity & fail-safe checks
+├── validation     → Fail-safe integrity checks
 ├── config         → Centralized rules & security configs
+├── testing        → Unit & integration tests
+├── metrics        → System metrics tracking
+├── health         → Health check endpoint
 └── Main           → Console entry point
 
-Execution Flow:
+🔄 Execution Flow:
+
 Request Start (Request ID)
  → Authentication Protection
  → Rate Limiting
- → Vital Evaluation
+ → Vital Input Processing
  → Risk Scoring
  → Audit Logging
  → Trend Analysis
@@ -34,147 +47,249 @@ Request Start (Request ID)
  → Report Aggregation
  → Report Storage
  → Response Output
+ → Metrics Update
 
-Module Responsibilities:
+📦 Module-Wise Breakdown:
 
-Module 1 – Model Layer:
-Defines the core domain entities used across the system.
-Examples:
+🔷 Module 1 – Model Layer
+
+Defines core domain entities.
+
 EvaluatedVitals
 VitalAbnormality
 SeverityLevel
 OverallStatus
-These classes represent structured patient health data.
+👉 Represents structured patient health data.
 
-Module 2 – Risk Scoring Engine:
-The RiskScoringEngine analyzes abnormal vital parameters and calculates a risk score for the patient.
-Risk categories include:
+🔷 Module 2 – Risk Scoring Engine
+
+Analyzes abnormalities and computes risk score.
+
+Risk Categories:
 LOW
 MODERATE
 HIGH
 
-Module 3 – Audit Logging:
-The VitalsAuditLogger records patient evaluation results and stores historical monitoring data.
-These records are used later for trend analysis.
+🔷 Module 3 – Audit Logging (Vitals)
 
-Module 4 – Trend Analysis:
-The VitalsTrendAnalyzer processes historical audit records to detect patterns in patient health.
-Pattern detection strategies include:
-AlertStreakDetector - Detects three consecutive ALERT states and classifies the trend as CRITICAL.
-RecoveryDetector - Detects recovery pattern:
-ALERT → ALERT → NORMAL
+Stores patient evaluation history for trend analysis.
 
-Trend classifications include:
+🔷 Module 4 – Trend Analysis
+
+Detects patterns from historical data.
+
+Strategies:
+AlertStreakDetector → 3 alerts → CRITICAL
+RecoveryDetector → ALERT → ALERT → NORMAL
+
+Trend Types:
 STABLE
 RECOVERING
 DETERIORATING
 CRITICAL
 
-Module 5 – Notification Engine:
-The AlertNotificationEngine determines the appropriate alert response based on:
-Risk category
+🔷 Module 5 – Notification Engine
+
+Generates alerts based on:
+
+Risk level
 Trend classification
-Escalation rules are maintained in a centralized configuration matrix to simplify decision logic.
 
-Module 6 – Patient Health Report Aggregation:
-The PatientHealthReportAggregator consolidates the outputs from:
-Risk evaluation
-Trend analysis
-Notification engine
-It generates a structured PatientHealthReport representing the patient's overall health status at a given time.
+Uses centralized escalation rules.
 
-Module 7 – Patient Health Report Repository:
-This module manages the storage and retrieval of patient health reports.
-The InMemoryPatientHealthReportRepository:
-Stores generated reports
-Retrieves reports by patient ID
-Displays historical patient monitoring data
-This enables tracking patient health progression over time.
+🔷 Module 6 – Report Aggregation
 
-Module 8 – Request Trace & Correlation System:
-Generates unique Request ID (UUID) per request.
-Attached to logs and responses
-Enables full request traceability
+Combines:
+Risk result
+Trend result
+Notification
 
-Module 9 – Rate Limiting Engine:
-Prevents excessive usage.
-Thread-safe implementation
-Per-user request limits
-Rejects with:
-429 TOO MANY REQUESTS
+➡ Produces PatientHealthReport
 
-Module 10 – Brute Force Protection System:
-Protects authentication flow.
+🔷 Module 7 – Repository
+
+InMemoryPatientHealthReportRepository
+
+Stores reports
+Retrieves by patient ID
+Enables history tracking
+
+🔷 Module 8 – Request Trace & Correlation
+
+Generates unique Request ID (UUID)
+Propagates across logs & flow
+Enables full traceability
+
+🔷 Module 9 – Rate Limiting Engine
+
+Prevents abuse
+Thread-safe (ConcurrentHashMap)
+
+Example Rules:
+10 requests/min per user
+Response:
+HTTP 429 – Too Many Requests
+
+🔷 Module 10 – Brute Force Protection
+
 Tracks failed login attempts
 Locks account after threshold
-Auto-reset on success
 
-Module 11 – Centralized Audit Logging:
-Captures system activity:
+Rules:
+5 failures → lock for 15 minutes
+Reset on success
+
+🔷 Module 11 – Centralized Audit Logging
+
+Logs system activity:
 requestId
 userId
 endpoint
 timestamp
-status
-Ensures observability and traceability.
+status (SUCCESS / FAIL)
 
-Module 12 – Fail-Closed Resilience Handling:
-Ensures system safety.
-Any failure → request denied
+👉 Ensures observability & traceability
+
+🔷 Module 12 – Fail-Closed Resilience
+
+Any failure → DENY request
 No unsafe execution allowed
-Global exception handling
 
-Module 13 – Security Headers & CORS Hardening:
-Enhances system security.
-Headers:
-X-Content-Type-Options
-X-Frame-Options
-X-XSS-Protection
+Handled via:
+SystemIntegrityGuard
+GlobalExceptionHandler
+
+🔷 Module 13 – Security Hardening
+
+Implements security headers:
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+X-XSS-Protection: 1; mode=block
 Strict-Transport-Security
+
 CORS:
 Only trusted origins allowed
 No wildcard usage
 
-Escalation Logic:
-Risk	       Trend	        Result
-HIGH	        Any	       EMERGENCY_ALERT
-MODERATE	DETERIORATING  ESCALATED_ALERT
-LOW	          CRITICAL	   ESCALATED_ALERT
-Any	         RECOVERING	        NONE
-Default	         —	        STANDARD_ALERT
+🔷 Module 14 – Test Coverage
+
+Includes:
+Unit Tests
+Integration Tests
+
+Tested Components:
+Aggregator
+Repository
+Rate Limiter
+Audit Logger
+
+✔ Edge cases covered:
+null inputs
+empty data
+invalid states
+
+🔷 Module 15 – Failure Simulation Engine
+
+Simulates:
+Null input
+Repository failure
+Rate limit breach
+Unauthorized access
+
+👉 Ensures fail-closed behavior
+
+🔷 Module 16 – Health Check System
+
+Endpoint Simulation:
+GET /health
+Response:
+{
+  "status": "UP",
+  "timestamp": "...",
+  "components": {
+    "repository": "UP",
+    "rateLimiter": "UP"
+  }
+}
+
+🔷 Module 17 – Data Consistency Validator
+
+Ensures:
+Chronological order
+No duplicate reports
+Valid report structure
+
+🔷 Module 18 – Metrics Tracker
+
+Tracks:
+Total requests
+Failed requests
+Rate-limited requests
+
+✔ Thread-safe using AtomicInteger
+
+📊 Escalation Logic
+Risk	              Trend	               Result
+HIGH	               Any	           EMERGENCY_ALERT
+MODERATE	      DETERIORATING	       ESCALATED_ALERT
+LOW	                 CRITICAL	       ESCALATED_ALERT
+Any	                RECOVERING	            NONE
+Default	                —	           STANDARD_ALERT
 
 Assumptions:
-In-memory storage (no database)
+
+In-memory storage (no DB)
 Console-based execution
-Simplified vital thresholds
+Simplified thresholds
 Single-node system
-System clock used for timestamps
+Local system clock used
 
 Design Principles:
+
 Clean modular architecture
-Enum-based domain modeling
-Immutable objects
+Immutable domain models
 Strategy pattern (trend detection)
 Centralized configuration
-Thread-safe implementations
-Defensive programming
+Thread-safe components
+Fail-closed security design
+Separation of concerns
 
-Tech Stack:
+🛠️ Tech Stack:
+
 Java 21
 Apache Maven
+JUnit (Testing)
 
-To Run the Project:
-mvn clean compile
+▶️ Running the Project:
+
+mvn clean install
 mvn exec:java
 
 Main Class:
 com.edorastech.vitalguard.Main
 
+Sample Output:
+
+Request ID : a1b2c3
+
+PATIENT HEALTH REPORT
+Patient ID           : P101
+Overall Status       : ALERT
+Risk Score           : 75
+Risk Category        : HIGH
+Trend Classification : CRITICAL
+Notification Type    : EMERGENCY_ALERT
+Final System Status  : CRITICAL
+Generated At         : 2026-04-28T22:30
+
 Conclusion:
-VitalGuard demonstrates a production-ready health monitoring system combining:
-Risk analysis
-Trend intelligence
-Alert escalation
-Historical tracking
-Security & abuse prevention
-Observability & traceability
+
+VitalGuard successfully demonstrates a production-grade health monitoring system by combining:
+
+✅ Risk Analysis
+✅ Trend Intelligence
+✅ Alert Escalation
+✅ Historical Tracking
+✅ Security & Abuse Prevention
+✅ Observability & Traceability
+✅ Reliability & Testing

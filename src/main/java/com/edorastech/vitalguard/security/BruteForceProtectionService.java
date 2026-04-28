@@ -1,34 +1,54 @@
 package com.edorastech.vitalguard.security;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 public class BruteForceProtectionService {
 
     private static final int MAX_ATTEMPTS = 5;
     private static final int LOCK_DURATION_MINUTES = 15;
 
-    // Track failed attempts
-    private final Map<String, Integer> attempts = new ConcurrentHashMap<>();
+    private final Map<String, Integer> attempts = new HashMap<>();
+    private final Map<String, LocalDateTime> lockTime = new HashMap<>();
 
-    // Track lock time
-    private final Map<String, LocalDateTime> lockTime = new ConcurrentHashMap<>();
+    public boolean authenticate(String userId, String password) {
 
-    /**
-     * Check if account is locked
-     */
-    public boolean isLocked(String userId) {
-
-        if (!lockTime.containsKey(userId)) {
+        if (isLocked(userId)) {
             return false;
         }
 
+        // Demo password logic (replace later if needed)
+        String correctPassword = "admin123";
+
+        if (!correctPassword.equals(password)) {
+            recordFailure(userId);
+            return false;
+        }
+
+        recordSuccess(userId);
+        return true;
+    }
+
+    public void recordFailure(String userId) {
+        attempts.put(userId, attempts.getOrDefault(userId, 0) + 1);
+
+        if (attempts.get(userId) >= MAX_ATTEMPTS) {
+            lockTime.put(userId, LocalDateTime.now());
+        }
+    }
+
+    public void recordSuccess(String userId) {
+        attempts.remove(userId);
+        lockTime.remove(userId);
+    }
+
+    public boolean isLocked(String userId) {
+        if (!lockTime.containsKey(userId)) return false;
+
         LocalDateTime lockedAt = lockTime.get(userId);
 
-        // Check if lock expired
         if (lockedAt.plusMinutes(LOCK_DURATION_MINUTES).isBefore(LocalDateTime.now())) {
-            // Unlock automatically
             lockTime.remove(userId);
             attempts.remove(userId);
             return false;
@@ -37,30 +57,6 @@ public class BruteForceProtectionService {
         return true;
     }
 
-    /**
-     * Record failed attempt
-     */
-    public void recordFailure(String userId) {
-
-        int currentAttempts = attempts.getOrDefault(userId, 0) + 1;
-        attempts.put(userId, currentAttempts);
-
-        if (currentAttempts >= MAX_ATTEMPTS) {
-            lockTime.put(userId, LocalDateTime.now());
-        }
-    }
-
-    /**
-     * Reset attempts on success
-     */
-    public void recordSuccess(String userId) {
-        attempts.remove(userId);
-        lockTime.remove(userId);
-    }
-
-    /**
-     * Get remaining attempts (for UI/logging)
-     */
     public int getRemainingAttempts(String userId) {
         return MAX_ATTEMPTS - attempts.getOrDefault(userId, 0);
     }

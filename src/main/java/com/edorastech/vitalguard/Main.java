@@ -1,6 +1,8 @@
 package com.edorastech.vitalguard;
 
 import com.edorastech.vitalguard.audit.*;
+import com.edorastech.vitalguard.health.HealthCheckService;
+import com.edorastech.vitalguard.metrics.MetricsTracker;
 import com.edorastech.vitalguard.model.*;
 import com.edorastech.vitalguard.monitoring.*;
 import com.edorastech.vitalguard.notification.*;
@@ -11,7 +13,6 @@ import com.edorastech.vitalguard.security.*;
 import com.edorastech.vitalguard.trend.*;
 import com.edorastech.vitalguard.validation.*;
 
-import java.time.LocalDateTime;
 import java.util.*;
 
 public class Main {
@@ -21,95 +22,78 @@ public class Main {
     private static final PatientHealthReportRepository reportRepository =
             new InMemoryPatientHealthReportRepository();
 
-    // Module 9 - Rate Limiter (shared instance)
     private static final RateLimiter rateLimiter = new RateLimiter();
-
-    // Module 10 - Brute Force Protection
     private static final BruteForceProtectionService bruteForceService =
             new BruteForceProtectionService();
-
-    // Module 11 - Central Audit Logger
     private static final CentralAuditLogger auditLogger =
             new CentralAuditLogger();
+    private static final MetricsTracker metrics = new MetricsTracker();
 
     public static void main(String[] args) {
 
         printSystemHeader();
 
-        // Module 8 - Request Trace
         String requestId = new RequestIdGenerator().generate();
         RequestContext.setRequestId(requestId);
 
-        System.out.println("Request ID : " + requestId);
+        metrics.incrementTotal();
 
         String patientId = null;
 
         try {
-             // ================= INPUT =================
+            // ================= AUTH =================
             System.out.print("Patient ID: ");
             patientId = scanner.nextLine().trim();
 
-            // Module 9 - Rate Limiting
-            if (!rateLimiter.allowRequest(patientId)) {
-                auditLogger.log(requestId, patientId, "INPUT", AuditStatus.FAIL, "RATE_LIMIT_EXCEEDED");
-                System.out.println("❌ ERROR: Too many requests (HTTP 429)");
+            System.out.print("Password: ");
+            String password = scanner.nextLine().trim();
+
+            if (!bruteForceService.authenticate(patientId, password)) {
+
+                metrics.incrementFailure();
+
+                auditLogger.log(
+                        requestId,
+                        patientId,
+                        "AUTH",
+                        AuditStatus.FAIL,
+                        "INVALID_CREDENTIALS_OR_LOCKED"
+                );
+
+                System.out.println("❌ Authentication failed / Account locked.");
                 return;
             }
 
-            // Module 10 - Brute Force Lock Check
-System.out.print("Enter Patient ID: ");
-String patientId1 = scanner.nextLine().trim();
-System.out.print("Enter Password: ");
-String password = scanner.nextLine().trim();
+            // ================= RATE LIMIT =================
+            if (!rateLimiter.allowRequest(patientId)) {
 
-// Check lock
-if (bruteForceService.isLocked(patientId1)) {
-    System.out.println("❌ Account locked due to multiple failed attempts. Try later.");
-    return;
-}
+                metrics.incrementRateLimited();
 
-// Simulated password (for demo)
-String correctPassword = "admin123";
+                auditLogger.log(
+                        requestId,
+                        patientId,
+                        "RATE_LIMIT",
+                        AuditStatus.FAIL,
+                        "TOO_MANY_REQUESTS"
+                );
 
-if (!password.equals(correctPassword)) {
+                System.out.println("❌ Too many requests (HTTP 429)");
+                return;
+            }
 
-    bruteForceService.recordFailure(patientId1);
-
-    System.out.println("❌ Invalid credentials.");
-    System.out.println("Remaining Attempts: " +
-            bruteForceService.getRemainingAttempts(patientId1));
-
-    return;
-}
-
-// Success
-bruteForceService.recordSuccess(patientId1);
-System.out.println("✅ Login successful.\n");
-
-
+            // ================= INPUT =================
             double heartRate = readDouble("Heart Rate (bpm): ");
             double systolic = readDouble("Systolic BP: ");
             double diastolic = readDouble("Diastolic BP: ");
             double temperature = readDouble("Body Temperature (°C): ");
             double oxygen = readDouble("Oxygen Saturation (%): ");
 
-            printVitalsPanel(patientId1, heartRate, systolic, diastolic, temperature, oxygen);
+            printVitalsPanel(patientId, heartRate, systolic, diastolic, temperature, oxygen);
 
-            // ================= DOMAIN PROCESS =================
-
-            List<VitalAbnormality> abnormalities = new ArrayList<>();
-
-            if (heartRate < 60 || heartRate > 100)
-                abnormalities.add(new VitalAbnormality("Heart Rate", "Out of Range", SeverityLevel.MODERATE));
-
-            if (systolic > 140)
-                abnormalities.add(new VitalAbnormality("Systolic BP", "High", SeverityLevel.MODERATE));
-
-            if (temperature > 38)
-                abnormalities.add(new VitalAbnormality("Temperature", "Fever", SeverityLevel.MILD));
-
-            if (oxygen < 95)
-                abnormalities.add(new VitalAbnormality("Oxygen Saturation", "Low", SeverityLevel.SEVERE));
+            // ================= DOMAIN =================
+            List<VitalAbnormality> abnormalities = detectAbnormalities(
+                    heartRate, systolic, temperature, oxygen
+            );
 
             OverallStatus status =
                     abnormalities.isEmpty() ? OverallStatus.NORMAL : OverallStatus.ALERT;
@@ -125,82 +109,101 @@ System.out.println("✅ Login successful.\n");
                             abnormalities
                     );
 
-            // Risk
             RiskEvaluationResult riskResult =
-                    new RiskScoringEngine().calculateRisk(patientId1, evaluatedVitals);
+                    new RiskScoringEngine().calculateRisk(patientId, evaluatedVitals);
 
-            // Audit Trail (Module 11)
-            auditLogger.log(requestId, patientId1, "RISK_ENGINE", AuditStatus.SUCCESS, null);
+            auditLogger.log(requestId, patientId, "RISK_ENGINE", AuditStatus.SUCCESS, null);
 
-            // Trend
+            // ================= TREND =================
             VitalsAuditLogger vitalsAuditLogger = new VitalsAuditLogger();
-            vitalsAuditLogger.log(patientId1, status, extractParams(abnormalities));
+            vitalsAuditLogger.log(patientId, status, extractParams(abnormalities));
 
             TrendAnalysisResult trendResult =
                     new VitalsTrendAnalyzer().analyze(
-                            patientId1,
-                            vitalsAuditLogger.getHistory(patientId1)
+                            patientId,
+                            vitalsAuditLogger.getHistory(patientId)
                     );
 
-            // Validation (Module 12 Fail-Closed)
+            // ================= VALIDATION =================
             SystemIntegrityGuard guard = new SystemIntegrityGuard();
             guard.validate(riskResult, trendResult);
 
-            // Notification
             NotificationResult notification =
-                    new AlertNotificationEngine().generateNotification(riskResult, trendResult);
+                    new AlertNotificationEngine()
+                            .generateNotification(riskResult, trendResult);
 
-            guard.validateNotification(notification, patientId1);
+            guard.validateNotification(notification, patientId);
 
-            // Aggregation (Module 6)
+            // ================= REPORT =================
             PatientHealthReport report =
                     new PatientHealthReportAggregator()
                             .aggregate(riskResult, trendResult, notification);
 
-            // Repository (Module 7)
             reportRepository.save(report);
 
-            // ================= SUCCESS =================
-
-            bruteForceService.recordSuccess(patientId1);
-
-            auditLogger.log(requestId, patientId1, "PROCESS_COMPLETE", AuditStatus.SUCCESS, null);
+            auditLogger.log(requestId, patientId, "PROCESS_COMPLETE", AuditStatus.SUCCESS, null);
 
             printFinalReport(evaluatedVitals, riskResult, trendResult, notification, report);
-            printPatientHistory(patientId1);
+            printPatientHistory(patientId);
 
         }
         catch (DomainValidationException ex) {
 
-            bruteForceService.recordFailure(patientId);
-            auditLogger.log(requestId, patientId, "VALIDATION", AuditStatus.FAIL, ex.getMessage());
+            metrics.incrementFailure();
 
+            auditLogger.log(requestId, patientId, "VALIDATION", AuditStatus.FAIL, ex.getMessage());
             System.out.println("❌ DOMAIN ERROR: " + ex.getMessage());
 
         }
         catch (InputMismatchException ex) {
 
-            bruteForceService.recordFailure(patientId);
-            auditLogger.log(requestId, patientId, "INPUT", AuditStatus.FAIL, "INVALID_INPUT");
+            metrics.incrementFailure();
 
+            auditLogger.log(requestId, patientId, "INPUT", AuditStatus.FAIL, "INVALID_INPUT");
             System.out.println("❌ Invalid numeric input.");
 
         }
         catch (Exception ex) {
 
-            bruteForceService.recordFailure(patientId);
-            auditLogger.log(requestId, patientId, "SYSTEM", AuditStatus.FAIL, ex.getMessage());
+            metrics.incrementFailure();
 
+            auditLogger.log(requestId, patientId, "SYSTEM", AuditStatus.FAIL, ex.getMessage());
             GlobalExceptionHandler.handle(ex);
 
         }
         finally {
             RequestContext.clear();
             scanner.close();
+
+            System.out.println("\n📊 SYSTEM METRICS:");
+            System.out.println(metrics.snapshot());
         }
     }
 
-    // ================= UTIL METHODS =================
+    // ================= HELPERS =================
+
+    private static List<VitalAbnormality> detectAbnormalities(
+            double heartRate,
+            double systolic,
+            double temperature,
+            double oxygen) {
+
+        List<VitalAbnormality> abnormalities = new ArrayList<>();
+
+        if (heartRate < 60 || heartRate > 100)
+            abnormalities.add(new VitalAbnormality("Heart Rate", "Out of Range", SeverityLevel.MODERATE));
+
+        if (systolic > 140)
+            abnormalities.add(new VitalAbnormality("Systolic BP", "High", SeverityLevel.MODERATE));
+
+        if (temperature > 38)
+            abnormalities.add(new VitalAbnormality("Temperature", "Fever", SeverityLevel.MILD));
+
+        if (oxygen < 95)
+            abnormalities.add(new VitalAbnormality("Oxygen Saturation", "Low", SeverityLevel.SEVERE));
+
+        return abnormalities;
+    }
 
     private static List<String> extractParams(List<VitalAbnormality> abnormalities) {
         List<String> list = new ArrayList<>();
@@ -263,10 +266,6 @@ System.out.println("✅ Login successful.\n");
 
     private static void printPatientHistory(String patientId) {
 
-        System.out.println("\n╔════════════════════════════════════════════════════════════╗");
-        System.out.println("║                PATIENT HISTORICAL REPORTS                  ║");
-        System.out.println("╚════════════════════════════════════════════════════════════╝");
-
         List<PatientHealthReport> history =
                 reportRepository.findByPatientId(patientId);
 
@@ -275,20 +274,17 @@ System.out.println("✅ Login successful.\n");
             return;
         }
 
-        System.out.printf("%-12s %-15s %-20s %-15s %-25s%n",
-                "Patient ID", "Risk", "Trend", "Status", "Generated At");
-
-        System.out.println("--------------------------------------------------------------------------");
+        System.out.println("\n--- PATIENT HISTORY ---");
 
         for (PatientHealthReport r : history) {
-            System.out.printf("%-12s %-15s %-20s %-15s %-25s%n",
+            System.out.printf("%s | %s | %s | %s%n",
                     r.getPatientId(),
                     r.getRiskCategory(),
                     r.getTrendClassification(),
-                    r.getOverallStatus(),
                     r.getGeneratedAt());
         }
-
-        System.out.println("--------------------------------------------------------------------------");
+        System.out.println("\n🏥 HEALTH CHECK:");
+        System.out.println(new HealthCheckService().check());
     }
+    
 }
